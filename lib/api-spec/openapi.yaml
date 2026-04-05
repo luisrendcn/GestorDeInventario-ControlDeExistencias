@@ -3,20 +3,26 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Inventory Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: products
+    description: Product management
+  - name: transactions
+    description: Sales and purchases
+  - name: stats
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,227 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [simple, perecedero, digital]
+        - name: lowStock
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List all transactions
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [venta, compra]
+        - name: productId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transactions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Register a sale or purchase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stats/summary:
+    get:
+      operationId: getSummary
+      tags: [stats]
+      summary: Dashboard summary statistics
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+
+  /stats/low-stock:
+    get:
+      operationId: getLowStockProducts
+      tags: [stats]
+      summary: Products with stock below minimum
+      responses:
+        "200":
+          description: Low stock products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /stats/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [stats]
+      summary: Recent transaction activity
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +258,154 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        nombre:
+          type: string
+        tipo:
+          type: string
+          enum: [simple, perecedero, digital]
+        precio:
+          type: number
+        stock:
+          type: integer
+        stockMinimo:
+          type: integer
+        stockBajo:
+          type: boolean
+        categoria:
+          type: string
+        fechaVencimiento:
+          type: string
+          nullable: true
+        urlDescarga:
+          type: string
+          nullable: true
+        infoAdicional:
+          type: string
+        createdAt:
+          type: string
+      required: [id, nombre, tipo, precio, stock, stockMinimo, stockBajo, infoAdicional, createdAt]
+
+    CreateProductBody:
+      type: object
+      properties:
+        nombre:
+          type: string
+        tipo:
+          type: string
+          enum: [simple, perecedero, digital]
+        precio:
+          type: number
+        stock:
+          type: integer
+        stockMinimo:
+          type: integer
+        categoria:
+          type: string
+        fechaVencimiento:
+          type: string
+          nullable: true
+        urlDescarga:
+          type: string
+          nullable: true
+      required: [nombre, tipo, precio, stock, stockMinimo]
+
+    UpdateProductBody:
+      type: object
+      properties:
+        nombre:
+          type: string
+        precio:
+          type: number
+        stockMinimo:
+          type: integer
+        categoria:
+          type: string
+        fechaVencimiento:
+          type: string
+          nullable: true
+        urlDescarga:
+          type: string
+          nullable: true
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        tipo:
+          type: string
+          enum: [venta, compra]
+        productId:
+          type: string
+        productNombre:
+          type: string
+        cantidad:
+          type: integer
+        precioUnitario:
+          type: number
+        total:
+          type: number
+        createdAt:
+          type: string
+      required: [id, tipo, productId, productNombre, cantidad, precioUnitario, total, createdAt]
+
+    CreateTransactionBody:
+      type: object
+      properties:
+        tipo:
+          type: string
+          enum: [venta, compra]
+        productId:
+          type: string
+        cantidad:
+          type: integer
+        precioUnitario:
+          type: number
+          nullable: true
+      required: [tipo, productId, cantidad]
+
+    Summary:
+      type: object
+      properties:
+        totalProductos:
+          type: integer
+        valorInventario:
+          type: number
+        productosStockBajo:
+          type: integer
+        totalTransacciones:
+          type: integer
+        totalVentas:
+          type: integer
+        totalCompras:
+          type: integer
+        ingresosVentas:
+          type: number
+        costoCompras:
+          type: number
+        balance:
+          type: number
+      required:
+        - totalProductos
+        - valorInventario
+        - productosStockBajo
+        - totalTransacciones
+        - totalVentas
+        - totalCompras
+        - ingresosVentas
+        - costoCompras
+        - balance
