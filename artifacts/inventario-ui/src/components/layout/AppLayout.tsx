@@ -1,5 +1,3 @@
-import { Sidebar } from "./Sidebar";
-
 interface AppLayoutProps {
   children: React.ReactNode;
   title: string;
@@ -9,9 +7,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps) {
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 ml-60 flex flex-col min-h-screen overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-background flex-1">
         <header className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border px-8 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-foreground">{title}</h1>
@@ -19,10 +15,9 @@ export function AppLayout({ children, title, subtitle, actions }: AppLayoutProps
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
-        <div className="flex-1 overflow-auto px-8 py-6">
+      <div className="flex-1 overflow-auto px-8 py-6">
           {children}
         </div>
-      </main>
     </div>
   );
 }

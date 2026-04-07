@@ -19,7 +19,7 @@ import os
 # sin importar desde qué directorio se ejecute el script.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from controllers.menu_controller import MenuController
+from controllers import MenuController
 
 
 def main() -> None:

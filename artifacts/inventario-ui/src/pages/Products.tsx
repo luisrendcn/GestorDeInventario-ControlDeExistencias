@@ -1,10 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import {
-  useListProducts, useCreateProduct, useUpdateProduct, useDeleteProduct,
-  getListProductsQueryKey
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { ExcelImportDialog } from "@/components/ExcelImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, AlertTriangle, Package } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, AlertTriangle, Package, Upload } from "lucide-react";
 
 type ProductType = "simple" | "perecedero" | "digital";
 
@@ -48,29 +44,40 @@ const tipoBadge: Record<string, string> = {
 };
 
 export default function Products() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormData>(defaultForm);
   const { toast } = useToast();
-  const qc = useQueryClient();
 
-  const params = {
-    ...(search ? { search } : {}),
-    ...(filterType !== "all" ? { type: filterType as ProductType } : {}),
+  // Load products
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:3000/api/products");
+      if (!res.ok) throw new Error("Error cargando productos");
+      const data = await res.json();
+      setProducts(data);
+    } catch (err) {
+      toast({ title: "Error", description: String(err), variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const { data: products } = useListProducts(params, { query: { queryKey: getListProductsQueryKey(params) } });
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
-  const deleteProduct = useDeleteProduct();
-
-  const invalidateProducts = () => qc.invalidateQueries({ queryKey: getListProductsQueryKey() });
+  useEffect(() => {
+    loadProducts();
+  }, []);
 
   const openCreate = () => { setForm(defaultForm); setEditingId(null); setShowCreateDialog(true); };
-  const openEdit = (p: NonNullable<typeof products>[number]) => {
+  const openEdit = (p: any) => {
     setForm({
       nombre: p.nombre, tipo: p.tipo as ProductType,
       precio: String(p.precio), stock: String(p.stock), stockMinimo: String(p.stockMinimo),
@@ -82,7 +89,14 @@ export default function Products() {
     setShowCreateDialog(true);
   };
 
-  const handleSubmit = () => {
+  // Filter products
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.nombre.toLowerCase().includes(search.toLowerCase());
+    const matchesType = filterType === "all" || p.tipo === filterType;
+    return matchesSearch && matchesType;
+  });
+
+  const handleSubmit = async () => {
     if (!form.nombre || !form.precio || !form.stock) {
       toast({ title: "Campos incompletos", description: "Completa nombre, precio y stock.", variant: "destructive" });
       return;
@@ -95,37 +109,64 @@ export default function Products() {
       fechaVencimiento: form.tipo === "perecedero" && form.fechaVencimiento ? form.fechaVencimiento : undefined,
       urlDescarga: form.tipo === "digital" && form.urlDescarga ? form.urlDescarga : undefined,
     };
-    if (editingId) {
-      updateProduct.mutate({ id: editingId, data: payload }, {
-        onSuccess: () => {
-          toast({ title: "Producto actualizado" });
-          setShowCreateDialog(false);
-          invalidateProducts();
-        },
-        onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+
+    try {
+      setSubmitting(true);
+      const method = editingId ? "PATCH" : "POST";
+      const url = editingId ? `http://localhost:3000/api/products/${editingId}` : "http://localhost:3000/api/products";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-    } else {
-      createProduct.mutate({ data: payload }, {
-        onSuccess: () => {
-          toast({ title: "Producto creado" });
-          setShowCreateDialog(false);
-          invalidateProducts();
-        },
-        onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-      });
+
+      if (!res.ok) throw new Error("Error guardando producto");
+      
+      toast({ title: editingId ? "Producto actualizado" : "Producto creado" });
+      setShowCreateDialog(false);
+      loadProducts();
+    } catch (err) {
+      toast({ title: "Error", description: String(err), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingId) return;
-    deleteProduct.mutate({ id: deletingId }, {
-      onSuccess: () => {
-        toast({ title: "Producto eliminado" });
-        setDeletingId(null);
-        invalidateProducts();
-      },
-      onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-    });
+    try {
+      setSubmitting(true);
+      const res = await fetch(`http://localhost:3000/api/products/${deletingId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Error eliminando producto");
+      toast({ title: "Producto eliminado" });
+      setDeletingId(null);
+      loadProducts();
+    } catch (err) {
+      toast({ title: "Error", description: String(err), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/api/products", { method: "DELETE" });
+      if (!response.ok) throw new Error("Error al limpiar la base de datos");
+      
+      const data = await response.json();
+      toast({ 
+        title: "Base de datos limpiada",
+        description: `${data.eliminados} productos eliminados`
+      });
+      setShowClearAllDialog(false);
+      loadProducts();
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: e instanceof Error ? e.message : "Error desconocido",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -133,9 +174,17 @@ export default function Products() {
       title="Productos"
       subtitle="Gestión del catálogo de inventario"
       actions={
-        <Button onClick={openCreate} size="sm" className="gap-1.5">
-          <Plus size={14} /> Nuevo producto
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowImportDialog(true)} size="sm" variant="outline" className="gap-1.5">
+            <Upload size={14} /> Importar Excel
+          </Button>
+          <Button onClick={() => setShowClearAllDialog(true)} size="sm" variant="destructive" className="gap-1.5">
+            <Trash2 size={14} /> Limpiar todo
+          </Button>
+          <Button onClick={openCreate} size="sm" className="gap-1.5">
+            <Plus size={14} /> Nuevo producto
+          </Button>
+        </div>
       }
     >
       {/* Filters */}
@@ -176,13 +225,13 @@ export default function Products() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {!products ? (
+            {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i}>
                   <td colSpan={6} className="px-5 py-3"><Skeleton className="h-6 w-full" /></td>
                 </tr>
               ))
-            ) : products.length === 0 ? (
+            ) : filteredProducts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
                   <Package size={32} className="mx-auto mb-2 opacity-30" />
@@ -190,7 +239,7 @@ export default function Products() {
                 </td>
               </tr>
             ) : (
-              products.map((p) => (
+              filteredProducts.map((p) => (
                 <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
@@ -292,7 +341,7 @@ export default function Products() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={createProduct.isPending || updateProduct.isPending}>
+            <Button onClick={handleSubmit} disabled={submitting}>
               {editingId ? "Guardar cambios" : "Crear producto"}
             </Button>
           </DialogFooter>
@@ -309,13 +358,34 @@ export default function Products() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel disabled={submitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={submitting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Clear all confirm */}
+      <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpiar base de datos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esto eliminará TODOS los productos. Esta acción es irreversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAll} disabled={submitting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar todos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Import Excel Dialog */}
+      <ExcelImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
     </AppLayout>
   );
 }

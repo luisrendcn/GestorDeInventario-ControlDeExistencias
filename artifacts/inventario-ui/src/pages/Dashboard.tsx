@@ -1,5 +1,5 @@
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useGetSummary, useGetLowStockProducts, useGetRecentActivity } from "@workspace/api-client-react";
 import { Package, TrendingUp, AlertTriangle, ArrowLeftRight, ShoppingCart, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,15 +22,59 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
 }
 
 export default function Dashboard() {
-  const { data: summary } = useGetSummary();
-  const { data: lowStock } = useGetLowStockProducts();
-  const { data: activity } = useGetRecentActivity({ limit: 8 });
+  const [summary, setSummary] = useState<any>(null);
+  const [lowStock, setLowStock] = useState<any>(null);
+  const [activity, setActivity] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const summaryRes = await fetch("http://localhost:3000/api/stats/summary");
+        if (!summaryRes.ok) {
+          throw new Error(`Stats summary failed: ${summaryRes.status}`);
+        }
+        const summaryData = await summaryRes.json();
+        setSummary(summaryData);
+
+        const lowStockRes = await fetch("http://localhost:3000/api/stats/low-stock");
+        if (!lowStockRes.ok) {
+          throw new Error(`Low stock failed: ${lowStockRes.status}`);
+        }
+        const lowStockData = await lowStockRes.json();
+        setLowStock(lowStockData);
+
+        const activityRes = await fetch("http://localhost:3000/api/stats/activity?limit=8");
+        if (!activityRes.ok) {
+          throw new Error(`Activity failed: ${activityRes.status}`);
+        }
+        const activityData = await activityRes.json();
+        setActivity(activityData);
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+        setError(String(err));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <AppLayout title="Dashboard" subtitle="Resumen del sistema de inventario">
+      {error && (
+        <div className="p-4 mb-4 bg-red-50 border border-red-200 rounded text-red-700">
+          Error al cargar datos: {error}
+        </div>
+      )}
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {summary ? (
+        {summary && !loading ? (
           <>
             <StatCard label="Productos" value={summary.totalProductos} icon={Package} color="bg-primary" sub="en inventario" />
             <StatCard label="Valor del inventario" value={`$${Number(summary.valorInventario).toLocaleString("es", { minimumFractionDigits: 2 })}`} icon={DollarSign} color="bg-teal-600" />
@@ -54,16 +98,16 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold">Alertas de stock bajo</h2>
           </div>
           <div className="divide-y divide-border">
-            {!lowStock ? (
+            {loading ? (
               <div className="p-5 space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
               </div>
-            ) : lowStock.length === 0 ? (
+            ) : lowStock && lowStock.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">
                 Todos los productos tienen stock suficiente
               </div>
             ) : (
-              lowStock.map((p) => (
+              (lowStock || []).map((p: any) => (
                 <div key={p.id} className="px-5 py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-foreground">{p.nombre}</p>
@@ -88,16 +132,16 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold">Actividad reciente</h2>
           </div>
           <div className="divide-y divide-border">
-            {!activity ? (
+            {loading ? (
               <div className="p-5 space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8" />)}
               </div>
-            ) : activity.length === 0 ? (
+            ) : activity && activity.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">
                 No hay transacciones registradas
               </div>
             ) : (
-              activity.map((t) => (
+              (activity || []).map((t: any) => (
                 <div key={t.id} className="px-5 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Badge

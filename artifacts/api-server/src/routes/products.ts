@@ -1,6 +1,8 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, ilike, and } from "drizzle-orm";
 import { db, productsTable } from "@workspace/db";
+import multer, { type Multer } from "multer";
+import XLSX from "xlsx";
 import {
   ListProductsQueryParams,
   CreateProductBody,
@@ -167,6 +169,159 @@ router.delete("/products/:id", async (req, res): Promise<void> => {
   }
 
   res.json(computeProductFields(row));
+});
+
+// Configure multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Import from Excel
+router.post("/products/import", upload.single("file"), async (req: Request & { file?: Express.Multer.File }, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: "No se proporcionó archivo" });
+      return;
+    }
+
+    let data: any[] = [];
+    const fileName = req.file.originalname.toLowerCase();
+
+    try {
+      if (fileName.endsWith(".csv")) {
+        // Parse CSV manually
+        const content = req.file.buffer.toString("utf8");
+        const lines = content.trim().split("\n");
+        if (lines.length < 2) {
+          throw new Error("CSV vacío o inválido");
+        }
+
+        const headers = lines[0].split(",").map((h: string) => h.trim());
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(",").map((v: string) => v.trim());
+          const row: any = {};
+          headers.forEach((header: string, idx: number) => {
+            row[header] = values[idx] || "";
+          });
+          data.push(row);
+        }
+      } else {
+        // Parse XLSX
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        data = XLSX.utils.sheet_to_json(worksheet);
+      }
+    } catch (parseErr) {
+      res.status(400).json({
+        error: "Error al parsear el archivo",
+        details: parseErr instanceof Error ? parseErr.message : "desconocido",
+      });
+      return;
+    }
+
+    let exitosos = 0;
+    let fallidos = 0;
+    const advertencias_list: Array<{ fila: number; advertencia: string }> = [];
+    const errores: Array<{ fila: number; error: string }> = [];
+    const productosCreados: Array<any> = [];
+
+    // Process each row
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const fila = i + 2;
+
+      try {
+        if (!row.nombre || !row.nombre.toString().trim()) {
+          errores.push({ fila, error: "nombre está vacío" });
+          fallidos++;
+          continue;
+        }
+
+        const nombre = row.nombre.toString().trim();
+        const precio = parseFloat(row.precio_venta || row.precio || row.precio_compra || 0);
+        const stock = parseInt(row.stock || 0);
+        const stockMinimo = parseInt(row.stock_minimo || row.stockMinimo || 5);
+
+        if (isNaN(precio) || precio < 0) {
+          errores.push({ fila, error: `precio inválido` });
+          fallidos++;
+          continue;
+        }
+
+        if (isNaN(stock) || stock < 0) {
+          errores.push({ fila, error: `stock inválido` });
+          fallidos++;
+          continue;
+        }
+
+        let tipo: "simple" | "perecedero" | "digital" = "simple";
+        const categoria = (row.categoria || "General").toString().trim().toLowerCase();
+
+        const categoriasPerecedero = ["alimentos", "comida", "bebidas", "medicamentos", "cosméticos", "aseo", "higiene", "perecedero"];
+        const categoriasDigital = ["software", "digital", "ebook", "suscripción", "app", "virtual"];
+
+        if (categoriasPerecedero.some((cat) => categoria.includes(cat)) || row.fecha_vencimiento) {
+          tipo = "perecedero";
+        } else if (categoriasDigital.some((cat) => categoria.includes(cat)) || row.url_descarga) {
+          tipo = "digital";
+        }
+
+        const id = `${nombre.substring(0, 4).toUpperCase().replace(/\s/g, "")}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+        const productData: typeof productsTable.$inferInsert = {
+          id,
+          nombre,
+          tipo,
+          precio: String(precio),
+          stock,
+          stockMinimo,
+          categoria: tipo === "simple" ? categoria || "General" : null,
+          fechaVencimiento: tipo === "perecedero" && row.fecha_vencimiento ? row.fecha_vencimiento.toString() : null,
+          urlDescarga: tipo === "digital" ? row.url_descarga?.toString() || "" : null,
+        };
+
+        const [createdProduct] = await db.insert(productsTable).values(productData).returning();
+        exitosos++;
+        productosCreados.push(computeProductFields(createdProduct));
+      } catch (error) {
+        fallidos++;
+        errores.push({
+          fila,
+          error: error instanceof Error ? error.message : "Error desconocido",
+        });
+      }
+    }
+
+    res.json({
+      exitosos,
+      fallidos,
+      advertencias: 0,
+      errores,
+      advertencias_list,
+      productos_creados: productosCreados,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al procesar el archivo",
+      details: error instanceof Error ? error.message : "desconocido",
+    });
+  }
+});
+
+// Delete all products
+router.delete("/products", async (req, res): Promise<void> => {
+  try {
+    const result = await db.delete(productsTable).returning();
+    
+    res.json({
+      message: "Todos los productos han sido eliminados",
+      eliminados: result.length,
+      productos: result.map(computeProductFields),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al eliminar productos",
+      details: error instanceof Error ? error.message : "desconocido",
+    });
+  }
 });
 
 export default router;

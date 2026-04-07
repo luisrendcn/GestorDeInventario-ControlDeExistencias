@@ -1,11 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import {
-  useListTransactions, useCreateTransaction, useListProducts,
-  getListTransactionsQueryKey, getListProductsQueryKey,
-  getGetSummaryQueryKey, getGetLowStockProductsQueryKey, getGetRecentActivityQueryKey
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +15,10 @@ import {
 import { Plus, ArrowLeftRight } from "lucide-react";
 
 export default function Transactions() {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const [showDialog, setShowDialog] = useState(false);
   const [tipo, setTipo] = useState<"venta" | "compra">("venta");
@@ -28,46 +26,69 @@ export default function Transactions() {
   const [cantidad, setCantidad] = useState("");
   const [precioUnitario, setPrecioUnitario] = useState("");
   const { toast } = useToast();
-  const qc = useQueryClient();
 
-  const params = filterType !== "all" ? { type: filterType as "venta" | "compra" } : {};
-  const { data: transactions } = useListTransactions(params, { query: { queryKey: getListTransactionsQueryKey(params) } });
-  const { data: products } = useListProducts({}, { query: { queryKey: getListProductsQueryKey() } });
-  const createTransaction = useCreateTransaction();
+  // Load data
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [transRes, prodRes] = await Promise.all([
+        fetch("http://localhost:3000/api/transactions"),
+        fetch("http://localhost:3000/api/products"),
+      ]);
 
-  const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: getListTransactionsQueryKey() });
-    qc.invalidateQueries({ queryKey: getListProductsQueryKey() });
-    qc.invalidateQueries({ queryKey: getGetSummaryQueryKey() });
-    qc.invalidateQueries({ queryKey: getGetLowStockProductsQueryKey() });
-    qc.invalidateQueries({ queryKey: getGetRecentActivityQueryKey() });
+      if (!transRes.ok || !prodRes.ok) throw new Error("Error cargando datos");
+      
+      const transData = await transRes.json();
+      const prodData = await prodRes.json();
+      
+      setTransactions(transData);
+      setProducts(prodData);
+    } catch (err) {
+      toast({ title: "Error", description: String(err), variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleSubmit = async () => {
     if (!productId || !cantidad) {
       toast({ title: "Campos incompletos", description: "Selecciona un producto y cantidad.", variant: "destructive" });
       return;
     }
-    createTransaction.mutate({
-      data: {
-        tipo,
-        productId,
-        cantidad: parseInt(cantidad),
-        precioUnitario: precioUnitario ? parseFloat(precioUnitario) : undefined,
-      }
-    }, {
-      onSuccess: () => {
-        toast({ title: tipo === "venta" ? "Venta registrada" : "Compra registrada" });
-        setShowDialog(false);
-        setProductId(""); setCantidad(""); setPrecioUnitario("");
-        invalidateAll();
-      },
-      onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-    });
+
+    try {
+      setSubmitting(true);
+      const res = await fetch("http://localhost:3000/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo,
+          productId,
+          cantidad: parseInt(cantidad),
+          precioUnitario: precioUnitario ? parseFloat(precioUnitario) : undefined,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Error registrando transacción");
+
+      toast({ title: tipo === "venta" ? "Venta registrada" : "Compra registrada" });
+      setShowDialog(false);
+      setProductId(""); setCantidad(""); setPrecioUnitario("");
+      loadData();
+    } catch (err) {
+      toast({ title: "Error", description: String(err), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const totalVentas = transactions?.filter(t => t.tipo === "venta").reduce((acc, t) => acc + Number(t.total), 0) ?? 0;
-  const totalCompras = transactions?.filter(t => t.tipo === "compra").reduce((acc, t) => acc + Number(t.total), 0) ?? 0;
+  const filteredTransactions = transactions.filter(t => filterType === "all" || t.tipo === filterType);
+  const totalVentas = filteredTransactions.filter(t => t.tipo === "venta").reduce((acc, t) => acc + Number(t.total), 0);
+  const totalCompras = filteredTransactions.filter(t => t.tipo === "compra").reduce((acc, t) => acc + Number(t.total), 0);
 
   return (
     <AppLayout
@@ -205,7 +226,7 @@ export default function Transactions() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={createTransaction.isPending}>
+            <Button onClick={handleSubmit} disabled={submitting}>
               Registrar {tipo}
             </Button>
           </DialogFooter>

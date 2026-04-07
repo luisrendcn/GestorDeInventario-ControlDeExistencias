@@ -11,7 +11,10 @@ const navItems = [
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { data: summary } = useGetSummary();
+  const { data: summary, error: summaryError } = useGetSummary();
+
+  // Don't show alerts if there's an error fetching summary
+  const alertCount = !summaryError ? (summary?.productosStockBajo ?? 0) : 0;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 w-60 flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -32,7 +35,7 @@ export function Sidebar() {
           const isActive = location === href;
           return (
             <Link key={href} href={href}>
-              <div
+              <a
                 data-testid={`nav-${label.toLowerCase()}`}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium cursor-pointer transition-colors",
@@ -43,7 +46,7 @@ export function Sidebar() {
               >
                 <Icon size={16} className="flex-shrink-0" />
                 {label}
-              </div>
+              </a>
             </Link>
           );
         })}
@@ -54,7 +57,7 @@ export function Sidebar() {
           <div className="flex items-start gap-2">
             <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-semibold text-amber-400">{summary?.productosStockBajo} alertas de stock</p>
+              <p className="text-xs font-semibold text-amber-400">{alertCount} alertas de stock</p>
               <p className="text-[11px] text-amber-400/70 mt-0.5">Revisar inventario</p>
             </div>
           </div>

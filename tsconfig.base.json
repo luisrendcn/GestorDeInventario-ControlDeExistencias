@@ -6,6 +6,8 @@
     "moduleResolution": "bundler",
     "noEmitOnError": true,
     "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
     "noImplicitOverride": false,
     "noImplicitReturns": true,
     "noUnusedLocals": false,
