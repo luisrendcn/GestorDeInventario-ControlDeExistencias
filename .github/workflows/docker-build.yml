@@ -1,0 +1,44 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./artifacts/api-server/Dockerfile
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/inventario-api:latest,${{ secrets.DOCKER_USERNAME }}/inventario-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push UI image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./artifacts/inventario-ui/Dockerfile
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/inventario-ui:latest,${{ secrets.DOCKER_USERNAME }}/inventario-ui:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
