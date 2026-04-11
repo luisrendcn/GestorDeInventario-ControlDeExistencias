@@ -4,6 +4,104 @@
 # Definir variables
 $taskName = "InventarioWeb"
 $xmlPath = "C:\Users\luisr\OneDrive\Proyectos\Gestion de inventario\Code-Companion\inventory_system\InventarioWeb_task.xml"
+
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "Instalador de Tarea - Inventario Web" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+
+# Verificar si esta como admin
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host "ERROR: Este script debe ejecutarse como ADMINISTRADOR" -ForegroundColor Red
+    Read-Host "Presiona ENTER para salir"
+    exit 1
+}
+
+Write-Host "OK Permisos de administrador detectados" -ForegroundColor Green
+Write-Host ""
+
+# Eliminar tarea anterior
+Write-Host "Eliminando tarea anterior si existe..."
+$task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($task) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false | Out-Null
+    Start-Sleep -Seconds 1
+    Write-Host "OK Tarea anterior eliminada"
+} else {
+    Write-Host "INFO Ninguna tarea anterior detectada"
+}
+
+Write-Host ""
+
+# Crear tarea desde XML
+Write-Host "Registrando nueva tarea..."
+try {
+    $xmlContent = Get-Content -Path $xmlPath -Encoding UTF16
+    Register-ScheduledTask -Xml $xmlContent -TaskName $taskName -Force | Out-Null
+    Write-Host "OK Tarea registrada correctamente" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR al registrar tarea: $_" -ForegroundColor Red
+    Read-Host "Presiona ENTER para salir"
+    exit 1
+}
+
+Write-Host ""
+
+# Iniciar tarea
+Write-Host "Iniciando tarea..."
+try {
+    Start-ScheduledTask -TaskName $taskName
+    Start-Sleep -Seconds 2
+    Write-Host "OK Tarea iniciada" -ForegroundColor Green
+} catch {
+    Write-Host "ADVERTENCIA Error al iniciar: $_"
+}
+
+Write-Host ""
+
+# Verificar estado
+Write-Host "Verificando estado..."
+try {
+    $task = Get-ScheduledTask -TaskName $taskName
+    $info = Get-ScheduledTaskInfo -TaskName $taskName
+    $state = $task.State
+    $lastRun = $info.LastRunTime
+    
+    Write-Host "Estado: $state"
+    Write-Host "Ultima ejecucion: $lastRun"
+} catch {
+    Write-Host "ADVERTENCIA Error al verificar estado"
+}
+
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Green
+Write-Host "INSTALACION COMPLETADA" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "La tarea ahora:" -ForegroundColor Cyan
+Write-Host "  OK Se inicia automaticamente con Windows"
+Write-Host "  OK Se reinicia si el servidor falla"
+Write-Host "  OK Se ejecuta con permisos de SISTEMA"
+Write-Host "  OK Accesible en http://127.0.0.1:5000"
+Write-Host ""
+
+Write-Host "Comandos utiles:" -ForegroundColor Yellow
+Write-Host "  Ver estado:    Get-ScheduledTask -TaskName InventarioWeb"
+Write-Host "  Iniciar:       Start-ScheduledTask -TaskName InventarioWeb"
+Write-Host "  Detener:       Stop-ScheduledTask -TaskName InventarioWeb"
+Write-Host "  Reiniciar:     Restart-ScheduledTask -TaskName InventarioWeb"
+Write-Host ""
+
+Read-Host "Presiona ENTER para cerrar"
+# Script para instalar la tarea en Task Scheduler
+# Ejecutar como ADMINISTRADOR
+
+# Definir variables
+$taskName = "InventarioWeb"
+$xmlPath = "C:\Users\luisr\OneDrive\Proyectos\Gestion de inventario\Code-Companion\inventory_system\InventarioWeb_task.xml"
 $projectPath = "C:\Users\luisr\OneDrive\Proyectos\Gestion de inventario\Code-Companion\inventory_system"
 
 Write-Host "========================================" -ForegroundColor Green
