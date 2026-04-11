@@ -1,21 +1,27 @@
 """
 inventario/inventario.py
 ========================
-Repositorio de inventario organizado con mixins.
+Repositorio de inventario organizado con mixins especializados.
 
-Responsabilidad:
+Arquitectura:
+    - Máximo desacoplamiento: cada operación en su propio archivo
+    - SRP aplicado al máximo: un método = un archivo = una responsabilidad
+    - Mixins organizados por subdirectorios: crud/, busqueda/, consultas/
+
+Responsabilidades:
     - Coordinar la colección de productos
     - Delegar operaciones a mixins especializados
     - Validar integridad de stock
+    - Mantener historial de movimientos
 
-Aplica:
-    - Alta cohesión: gestiona únicamente la colección de productos
-    - Bajo acoplamiento: no conoce la lógica de negocio
-    - Separación de responsabilidades con mixins
-    - SRP: solo es responsable de coordinación y acceso
+Beneficios:
+    - Alta cohesión: cada archivo, una responsabilidad
+    - Bajo acoplamiento: métodos independientes
+    - Fácil de testear: cada método aislado
+    - Escalable: agregar nuevos métodos sin modificar existentes
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from .crud import CRUDMixin
 from .busqueda import BúsquedaMixin
 from .consultas import ConsultasMixin
