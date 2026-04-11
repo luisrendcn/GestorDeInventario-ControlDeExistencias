@@ -56,10 +56,8 @@ def verificar_db():
         return True
     except Exception as e:
         print(f"❌ Error de conexión a BD: {e}")
-        print("\n📋 Asegúrate de:")
-        print("   1. PostgreSQL está corriendo")
-        print("   2. Base de datos 'control_existencias' existe")
-        print("   3. Credenciales en .env son correctas")
+        print("\n📋 La base de datos SQLite se crea automáticamente")
+        print("   Si persiste el error, elimina: control_existencias.db")
         return False
 
 def main():
@@ -80,10 +78,8 @@ def main():
     print("✅ Configuración: OK")
     
     if not verificar_db():
-        print("\n💡 Tip: Si PostgreSQL no está instalado:")
-        print("   Windows: https://www.postgresql.org/download/windows/")
-        print("   Mac: brew install postgresql")
-        print("   Linux: sudo apt install postgresql")
+        print("\n💡 Tip: Verifica que el directorio sea escribible")
+        print("   La BD SQLite se crea automáticamente en: control_existencias.db")
         sys.exit(1)
     
     print("\n" + "="*60)

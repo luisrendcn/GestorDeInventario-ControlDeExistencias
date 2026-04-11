@@ -1,7 +1,7 @@
 """
 app.py
 ======
-Aplicación Flask para Control de Existencias con BD PostgreSQL.
+Aplicación Flask para Control de Existencias con BD SQLite.
 
 Interfaz web para gestionar inventario.
 """
@@ -25,8 +25,27 @@ CORS(app)
 # Inicializar BD
 @app.before_request
 def init_db():
-    if not database.conn:
-        database.conectar()
+    """Inicializa conexión a la BD antes de cada request"""
+    try:
+        if not database.conn:
+            database.conectar()
+    except Exception as e:
+        print(f"⚠️ Error al inicializar BD: {e}")
+        # No lanzar error aquí, permitir que Flask maneje
+        pass
+
+
+# Manejo global de errores
+@app.errorhandler(404)
+def not_found(error):
+    """Error 404 - No encontrado"""
+    return jsonify({"error": "Recurso no encontrado"}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Error 500 - Error interno del servidor"""
+    return jsonify({"error": "Error interno del servidor"}), 500
 
 
 # ============================================================================
