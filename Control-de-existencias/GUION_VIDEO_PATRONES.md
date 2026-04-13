@@ -50,7 +50,7 @@ Imagina que tienes un sistema complejo con muchos subsistemas:
 - Middlewares
 - Rutas y endpoints
 - Manejo de errores
-- Autenticación
+
 
 Todo interconectado y difícil de coordinar. El cliente que quiere usar tu 
 aplicación NO quiere saber de todos estos detalles internos. Solo quiere:
@@ -67,7 +67,7 @@ Creas UNA interfaz simplificada que OCULTA toda la complejidad interna y:
 En nuestro caso, la aplicación Flask necesita:
   1. Conectar a la BD
   2. Crear tablas
-  3. Registrar middlewares (logging, manejo de errores)
+  3. Registrar middlewares (manejo de errores)
   4. Registrar rutas
   5. Registrar blueprints de API
 
