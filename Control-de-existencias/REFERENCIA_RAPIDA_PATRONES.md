@@ -112,49 +112,62 @@ CÓMO ESTÁ IMPLEMENTADO:
 
 ARCHIVOS A MOSTRAR:
 
-  📄 STRATEGY: Definición de estrategias
-     Archivo: services/inventario_strategies.py
-     Líneas a mostrar:
-       • Líneas 1-100: Documentación + explicación del patrón
-       • Línea 40-60: explicación detallada
-       • Línea 70-110: Contraste if/else vs STRATEGY
+  📄 STRATEGY: Arquitectura modular de estrategias
+     Carpeta: services/inventario_strategies/
+     Estructura:
+       • entrada/ → 4 archivos atómicos
+       • salida/ → 4 archivos atómicos
+       • ajuste/ → 4 archivos atómicos
 
      QUÉ OBSERVAR:
-       - Patrón BIEN DOCUMENTADO
-       - Problema de if/else explicado
-       - Solución con clases independientes
+       - Patrón SRP aplicado extremadamente (1 responsabilidad por archivo)
+       - 3 carpetas = 3 estrategias diferentes
+       - Cada carpeta tiene: validar_*.py, operación.py, registrar_*.py, *_strategy.py
 
-  📄 STRATEGY: EntradaStrategy
-     Archivo: services/inventario_strategies.py
-     Líneas a mostrar:
-       • Líneas 115-170: Clase EntradaStrategy
-
-     QUÉ OBSERVAR:
-       - Hereda de BaseStrategy
-       - Método execute() suma stock SIN validación
-       - Lógica independiente ✓
-
-  📄 STRATEGY: SalidaStrategy
-     Archivo: services/inventario_strategies.py
-     Líneas a mostrar:
-       • Líneas 175-230: Clase SalidaStrategy
+  📄 STRATEGY: EntradaStrategy (Modular)
+     Estructura: services/inventario_strategies/entrada/
+     
+     Archivos atómicos a mostrar:
+       • entrada_strategy.py (líneas 1-65): Orchestrator
+       • validar_entrada.py (líneas 1-25): Validaciones
+       • sumar_stock.py (líneas 1-15): Operación aritmética
+       • registrar_entrada.py (líneas 1-30): Persistencia
 
      QUÉ OBSERVAR:
-       - Hereda de BaseStrategy
-       - Método execute() VALIDA stock >= cantidad
-       - Diferente lógica que Entrada
-       - Ambas comparten interfaz execute() ✓
+       - 4 responsabilidades separadas en 4 archivos
+       - entrada_strategy.py orquesta el flujo
+       - Cada archivo tiene máximo 30 líneas
+       - Testeable al 100% por aislamiento ✓
 
-  📄 STRATEGY: AjusteStrategy
-     Archivo: services/inventario_strategies.py
-     Líneas a mostrar:
-       • Líneas 235-280: Clase AjusteStrategy
+  📄 STRATEGY: SalidaStrategy (Modular)
+     Estructura: services/inventario_strategies/salida/
+     
+     Archivos atómicos a mostrar:
+       • salida_strategy.py (líneas 1-75): Orchestrator
+       • validar_salida.py (líneas 1-40): Validaciones + disponibilidad
+       • restar_stock.py (líneas 1-15): Operación aritmética
+       • registrar_salida.py (líneas 1-30): Persistencia
 
      QUÉ OBSERVAR:
-       - Hereda de BaseStrategy
-       - Método execute() asigna valor exacto
-       - Ninguna validación
-       - Tercera opción diferente ✓
+       - Similar a Entrada pero con validar_disponibilidad()
+       - validar_salida.py tiene DIFERENCIA: valida stock >= cantidad
+       - salida_strategy.py más largo porque requiere más validaciones
+       - Mismo SRP que Entrada: 4 responsabilidades separadas ✓
+
+  📄 STRATEGY: AjusteStrategy (Modular)
+     Estructura: services/inventario_strategies/ajuste/
+     
+     Archivos atómicos a mostrar:
+       • ajuste_strategy.py (líneas 1-55): Orchestrator
+       • validar_ajuste.py (líneas 1-15): Validación simple
+       • asignar_stock.py (líneas 1-15): Operación de asignación exacta
+       • registrar_ajuste.py (líneas 1-30): Persistencia
+
+     QUÉ OBSERVAR:
+       - Más simple que Entrada/Salida (menos validaciones)
+       - asignar_stock() es diferente: asigna valor exacto, no suma/resta
+       - Tercera opción diferente de STRATEGY pattern
+       - 4 responsabilidades separadas, máximo 55 líneas ✓
 
   📄 STRATEGY: USO EN API
      Archivo: api/v1/movimientos.py
@@ -252,9 +265,13 @@ FACTORY METHOD  | app/__init__.py             | 14-30 (función create_app)
                 | repositorio_factory/__init__| 1-30
                 | movimiento_repo_factory/... | 1-30
 ─────────────────────────────────────────────────────────────────────────────
-STRATEGY        | inventario_strategies.py    | 1-100 (docs)
-                |                             | 115-280 (3 strategies)
-                | api/v1/movimientos.py       | 80-120 (uso)
+STRATEGY        | inventario_strategies/entrada/  | Estructura modular
+                | entrada_strategy.py          | 1-65 (orchestrator)
+                | validar_entrada.py           | 1-25 (validación)
+                | salida_strategy.py           | 1-75 (con disponibilidad)
+                | validar_salida.py            | 1-40 (key difference)
+                | ajuste_strategy.py           | 1-55 (asignación exacta)
+                | api/v1/movimientos.py        | 80-260 (uso transparente)
 ─────────────────────────────────────────────────────────────────────────────
 OBSERVER        | event.py                    | 1-70 (Events)
                 | observer.py                 | 1-15 (Interface)

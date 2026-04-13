@@ -340,96 +340,204 @@ EN NUESTRO PROYECTO:"
 
 ───────────────────────────────────────────────────────────────────────────────
 
-💻 CÓDIGO - STRATEGY: Introducción (1 minuto)
+💻 CÓDIGO - STRATEGY: Estructura Modular (1 minuto)
 ───────────────────────────────────────────────────────────────────────────────
 
-"[ABRIR ARCHIVO]
+"[ABRIR CARPETA]
 
-Archivo: services/inventario_strategies.py
-Líneas: 1-100 (comentarios explicativos)
+Archivo: services/inventario_strategies/
 
-Este archivo define las 3 ESTRATEGIAS DE INVENTARIO.
+Este patrón STRATEGY está organizado DE FORMA MODULAR:
 
-[MOSTRAR COMENTARIOS Y ESTRUCTURA]
+[MOSTRAR ESTRUCTURA EN VS CODE]
 
-Ves el patrón STRATEGY PATTERN documentado en las líneas 1-100:
+  inventario_strategies/
+  ├── entrada/          → Estrategia de ENTRADA
+  ├── salida/           → Estrategia de SALIDA
+  └── ajuste/           → Estrategia de AJUSTE
 
-  • Línea 40-60: Explicación del patrón
-  • Línea 70-110: Contraste con if/else
+Cada estrategia tiene su PROPIA CARPETA con componentes atómicos:
 
-Luego vienen las 3 ESTRATEGIAS:
+  ├── validar_*.py      → Validación
+  ├── (operacion).py    → Operación (suma, resta, asigna)
+  ├── registrar_*.py    → Persistencia en BD
+  └── *_strategy.py     → Clase orquestadora
 
-[MOSTRAR CLASES]"
+VENTAJA: Cada responsabilidad está SEPARADA en archivos únicos de ~30 líneas."
 
 ───────────────────────────────────────────────────────────────────────────────
 
-💻 CÓDIGO - STRATEGY: EntradaStrategy (1 minuto 30 segundos)
+💻 CÓDIGO - STRATEGY: EntradaStrategy (2 minutos)
 ───────────────────────────────────────────────────────────────────────────────
 
-"[SCROLL en el archivo]
+"[ABRIR CARPETA]
 
-Líneas: 115-170 - Clase EntradaStrategy
+Archivo: services/inventario_strategies/entrada/
 
-Aquí está la ESTRATEGIA DE ENTRADA:
+Aquí está la ESTRATEGIA DE ENTRADA dividida en 4 archivos:
 
-[MOSTRAR MÉTODO __init__ y execute]
+[MOSTRAR ESTRUCTURA]
+
+  entrada/
+  ├── validar_entrada.py       (Validación)
+  ├── sumar_stock.py           (Operación suma)
+  ├── registrar_entrada.py     (Persistencia)
+  └── entrada_strategy.py      (Orquestador)
+
+[ABRIR entrada_strategy.py - Líneas 1-65]
 
 EntradaStrategy():
-  • Hereda de BaseStrategy
-  • Método execute() suma stock SIN validación
-  • Lógica: entrada = sumar stock sin límite (compra de proveedores)
+  • Clase orquestadora (línea 18-65)
+  • Método ejecutar() ORQUESTA el proceso
+  • NO hace validación ni suma directamente, DELEGA
 
-La lógica está ENCAPSULADA aquí. Cambios a esta estrategia no afectan a Salida 
-ni a Ajuste."
+[MOSTRAR LÍNEA 39-62 - El método ejecutar()]
+
+Ves cómo se llama a cada componente atómico:
+
+  1. validar_entrada() → línea 40
+  2. obtener producto → línea 46
+  3. sumar_stock() → línea 49
+  4. registrar_entrada() → línea 51-59
+
+Cada paso es independiente. Puedes testear sumar_stock() SIN validación.
+
+[ABRIR validar_entrada.py - Líneas 1-25]
+
+Aquí está SOLO la validación:
+
+  • validar_entrada(cantidad) - línea 9
+  • validar_schema(...) - línea 17
+
+RESPONSABILIDAD ÚNICA: Validar datos.
+
+[ABRIR sumar_stock.py - Líneas 1-15]
+
+RESPONSABILIDAD ÚNICA: Sumar
+
+  def sumar_stock(producto, cantidad):
+      producto.agregar_stock(cantidad)
+
+Una línea de lógica. Testeable, simple, clara.
+
+[ABRIR registrar_entrada.py - Líneas 1-30]
+
+RESPONSABILIDAD ÚNICA: Persistencia
+
+  def registrar_entrada(...):
+      producto_repo.actualizar(producto)
+      movimiento_repo.registrar_movimiento(...)
+
+Guarda en BD. Nada más.
+
+AHORA ENTIENDES la refactorización MODULAR del patrón STRATEGY."
 
 ───────────────────────────────────────────────────────────────────────────────
 
-💻 CÓDIGO - STRATEGY: SalidaStrategy (1 minuto)
+💻 CÓDIGO - STRATEGY: SalidaStrategy (2 minutos)
 ───────────────────────────────────────────────────────────────────────────────
 
-"[SCROLL]
+"[ABRIR CARPETA]
 
-Líneas: 175-230 - Clase SalidaStrategy
+Archivo: services/inventario_strategies/salida/
 
-ESTRATEGIA DE SALIDA:
+ESTRATEGIA DE SALIDA - dividida en 4 archivos:
 
-[MOSTRAR CÓDIGO]
+  salida/
+  ├── validar_salida.py        (Validación)
+  ├── restar_stock.py          (Operación resta)
+  ├── registrar_salida.py      (Persistencia)
+  └── salida_strategy.py       (Orquestador)
 
-SalidaStrategy():
-  • Hereda de BaseStrategy
-  • Método execute() VALIDA que stock >= cantidad
-  • Lógica: salida = restar stock CON VALIDACIÓN (venta a clientes)
+[ABRIR salida_strategy.py - Líneas 1-75]
 
-Ves que VALIDA:
+La DIFERENCIA CLAVE con ENTRADA está en validación:
 
-  if cantidad > stock_actual:
-      raise StockInsuficienteError(...)
+[MOSTRAR línea 47-49]
 
-¿POR QUÉ? Porque no puedes vender más de lo que tienes.
+  validar_salida(cantidad)
+  validar_disponibilidad(producto, cantidad) ← ESTA FALTA EN ENTRADA
 
-Pero EntradaStrategy NO hace esta validación. Cada una maneja su lógica."
+ESTA VALIDACIÓN es lo que diferencia Salida de Entrada.
+
+[ABRIR validar_salida.py - Líneas 1-35]
+
+Ves las funciones:
+
+  • validar_salida(cantidad) - línea 8
+  • validar_disponibilidad(producto, cantidad) - línea 14 ← CLAVE
+
+validar_disponibilidad() VALIDA que hay suficiente stock:
+
+  if cantidad > producto.stock:
+      raise StockInsuficiente(...)
+
+¿POR QUÉ esta diferencia? Porque en SALIDA no puedes dar más de lo que tienes.
+
+[ABRIR restar_stock.py - Líneas 1-15]
+
+Operación:
+
+  def restar_stock(producto, cantidad):
+      producto.reducir_stock(cantidad)
+
+Análoga a sumar_stock pero resta.
+
+AHORA VES LA DIFERENCIA: SalidaStrategy VALIDA; EntradaStrategy NO.
+Mismo patrón, lógica diferente."
 
 ───────────────────────────────────────────────────────────────────────────────
 
-💻 CÓDIGO - STRATEGY: AjusteStrategy (1 minuto)
+💻 CÓDIGO - STRATEGY: AjusteStrategy (1 minuto 30 segundos)
 ───────────────────────────────────────────────────────────────────────────────
 
-"[SCROLL]
+"[ABRIR CARPETA]
 
-Líneas: 235-280 - Clase AjusteStrategy
+Archivo: services/inventario_strategies/ajuste/
 
-ESTRATEGIA DE AJUSTE:
+ESTRATEGIA DE AJUSTE - dividida en 4 archivos:
 
-[MOSTRAR CÓDIGO]
+  ajuste/
+  ├── validar_ajuste.py        (Validación)
+  ├── asignar_stock.py         (Operación asigna)
+  ├── registrar_ajuste.py      (Persistencia)
+  └── ajuste_strategy.py       (Orquestador)
 
-AjusteStrategy():
-  • Hereda de BaseStrategy
-  • Método execute() ASIGNA valor exacto sin validación
-  • Lógica: ajuste = establecer stock a un valor específico (auditoría física)
+[ABRIR ajuste_strategy.py - Líneas 1-65]
 
-No hay validación. Esto es para correcciones por cuenta física o robos.
+DIFERENCIA CON ENTRADA/SALIDA: Asigna valor EXACTO, no aritmética.
 
-Ves el patrón? Tres óptimos diferentes, cada uno en su CLASE."
+[MOSTRAR línea 45]
+
+  asignar_stock(producto, nuevo_stock) ← No suma ni resta
+
+Es una ASIGNACIÓN directa.
+
+[ABRIR asignar_stock.py - Líneas 1-15]
+
+Operación:
+
+  def asignar_stock(producto, nuevo_stock):
+      producto.establecer_stock(nuevo_stock)
+
+Una línea. Sin cálculos. Valor exacto.
+
+[ABRIR validar_ajuste.py - Líneas 1-10]
+
+RESPONSABILIDAD ÚNICA: Validar que nuevo_stock >= 0
+
+  if nuevo_stock < 0:
+      raise DatosInvalidos(...)
+
+Eso es todo. La validación de ajuste es simple.
+
+¿VES EL PATRÓN? Las tres estrategias:
+
+  1. EntradaStrategy → suma sin límite
+  2. SalidaStrategy → resta con validación
+  3. AjusteStrategy → asigna valor exacto
+
+DIFERENTES algoritmos, MISMA interfaz, RESPONSABILIDADES separadas."
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -454,16 +562,20 @@ En el endpoint /entrada, ves:
       ...
   )
 
-El CLIENTE (API) NO conoce los detalles de cómo entra el stock.
+El CLIENTE (API) NO conoce que Entrada está hecha de 4 archivos diferentes.
 Solo ELIGE la estrategia y la EJECUTA.
 
-Si mañana cambias la lógica de entrada, cambias EntradaStrategy.
+TRANSPARENCIA: La arquitectura interna (modular) no afecta al cliente externo.
+
+Si mañana cambias la validación de entrada, cambias:
+  services/inventario_strategies/entrada/validar_entrada.py
+
 El endpoint /entrada sigue siendo:
 
   strategy = ServiceContainer.get_entrada_strategy()
   resultado = strategy.ejecutar(...)
 
-SIN CAMBIOS."
+SIN CAMBIOS. Eso es ARCHITECTURE INDEPENDENCE."
 
 ───────────────────────────────────────────────────────────────────────────────
 
@@ -807,12 +919,16 @@ ARCHIVOS A TENER ABIERTOS EN VS CODE (en orden):
 2. database/__init__.py (líneas 1-150) - FACADE #2
 3. app/__init__.py (líneas 14-30) - FACTORY METHOD #1
 4. infrastructure/repositories/repositorio_factory/__init__.py - FACTORY #2
-5. services/inventario_strategies.py (líneas 1-280) - STRATEGY
-6. api/v1/movimientos.py (líneas 80-120) - STRATEGY USO
-7. core/event_system/event.py (líneas 1-70) - OBSERVER Event
-8. core/event_system/observer.py - OBSERVER Interface
-9. core/event_system/event_manager.py (líneas 1-80) - OBSERVER Manager
-10. core/event_system/listeners.py (líneas 1-150) - OBSERVER Listeners
+5. services/inventario_strategies/entrada/entrada_strategy.py - STRATEGY Entrada
+6. services/inventario_strategies/entrada/validar_entrada.py - STRATEGY Entrada Validación
+7. services/inventario_strategies/salida/salida_strategy.py - STRATEGY Salida
+8. services/inventario_strategies/salida/validar_salida.py - STRATEGY Salida (con disponibilidad)
+9. services/inventario_strategies/ajuste/ajuste_strategy.py - STRATEGY Ajuste
+10. api/v1/movimientos.py (líneas 80-260) - STRATEGY USO EN API
+11. core/event_system/event.py (líneas 1-70) - OBSERVER Event
+12. core/event_system/observer.py - OBSERVER Interface
+13. core/event_system/event_manager.py (líneas 1-80) - OBSERVER Manager
+14. core/event_system/listeners.py (líneas 1-150) - OBSERVER Listeners
 
 TIMING:
 - FACADE: 3-4 minutos
